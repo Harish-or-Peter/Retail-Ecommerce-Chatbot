@@ -1,0 +1,22 @@
+# --- Large binaries not suitable for GitHub ---
+
+# Fine-tuned model weights (~293 MB, exceeds GitHub's 100 MB limit).
+# Regenerate by running the notebook, or host on Hugging Face / Drive.
+chatbot/retail-ecommerce-chatbot-v2/model.safetensors
+
+# Training dataset (~40 MB) — publicly available on Hugging Face and
+# auto-downloaded by the notebook; no need to version it here.
+chatbot/bitext-retail-ecommerce-llm-chatbot-training-dataset.csv
+
+# Video / media
+*.mp4
+*.mov
+
+# Python / Jupyter scratch
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS cruft
+.DS_Store
+Thumbs.db

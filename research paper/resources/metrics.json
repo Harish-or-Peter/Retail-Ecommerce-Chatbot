@@ -1,0 +1,22 @@
+{
+  "baseline": {
+    "model": "zero-shot baseline",
+    "ROUGE-1": 0.0672,
+    "ROUGE-2": 0.0174,
+    "ROUGE-L": 0.0567,
+    "BLEU": 0.0,
+    "avg_response_words": 7.08,
+    "BERTScore-F1": 0.818,
+    "latency_ms_per_query": 52.8
+  },
+  "fine_tuned": {
+    "model": "fine-tuned",
+    "ROUGE-1": 0.6172,
+    "ROUGE-2": 0.3608,
+    "ROUGE-L": 0.4533,
+    "BLEU": 29.2707,
+    "avg_response_words": 133.47,
+    "BERTScore-F1": 0.9086,
+    "latency_ms_per_query": 740.5
+  }
+}

@@ -1,0 +1,3 @@
+model,ROUGE-1,ROUGE-2,ROUGE-L,BLEU,avg_response_words,BERTScore-F1,latency_ms_per_query
+zero-shot baseline,0.0672,0.0174,0.0567,0.0,7.08,0.818,52.8
+fine-tuned,0.6172,0.3608,0.4533,29.2707,133.47,0.9086,740.5
