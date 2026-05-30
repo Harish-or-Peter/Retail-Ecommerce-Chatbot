@@ -45,7 +45,7 @@ Fine-Tuning a Compact Instruction-Tuned Language Model for Retail E-Commerce Cus
 **Slide 9 — Results: Convergence & Per-Category** *(images: `fig4_training_loss.png`, `fig6_per_category_rougeL.png`)*
 - Clean convergence, no overfitting · strongest: ACCOUNT/CART · weakest: FEEDBACK.
 
-**Slide 10 — Demonstration & Qualitative Behaviour**
+**Slide 10 — Demonstration & Qualitative Behaviour** *(image: `resources/diagrams/gradio_demo4.png`)*
 - Gradio chat UI (live demo in the video).
 - In-domain: structured step-by-step answers; baseline gave useless one-liners.
 - Ambiguous words (e.g. "refund") → sensible inferred intent.

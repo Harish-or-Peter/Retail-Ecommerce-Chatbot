@@ -107,13 +107,15 @@ s = slide("Results - Convergence & Per-Category")
 pic(s, os.path.join(FIG, "fig4_training_loss.png"), 0.5, 1.5, 6.2)
 pic(s, os.path.join(FIG, "fig6_per_category_rougeL.png"), 6.9, 1.5, 6.0)
 
-bullets(slide("Demonstration & Qualitative Behaviour"), [
-    "Gradio chat interface served from the notebook (live demo in video).",
+s = slide("Demonstration & Qualitative Behaviour")
+bullets(s, [
+    "Gradio chat interface served from the notebook.",
     "In-domain: structured, step-by-step answers.",
     "Baseline gave useless one-liners.",
-    "Ambiguous single words (e.g. 'refund') -> sensible inferred intent.",
-    "Out-of-domain (weather, jokes) -> answered in support style (over-generalisation).",
-])
+    "Ambiguous words (e.g. 'refund') -> inferred intent.",
+    "Out-of-domain -> answered in support style (over-generalisation).",
+], left=0.6, top=1.4, width=6.2, size=17)
+pic(s, os.path.join(DIA, "gradio_demo4.png"), 6.9, 2.2, 6.1)
 
 bullets(slide("Discussion & Limitations"), [
     "Domain adaptation - not scale - was the limiting factor.",
