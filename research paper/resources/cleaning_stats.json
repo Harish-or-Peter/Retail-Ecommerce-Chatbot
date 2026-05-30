@@ -1,0 +1,11 @@
+{
+  "raw": 44884,
+  "after_dropna": 44884,
+  "after_empty": 44884,
+  "after_dedup": 44884,
+  "train": 35907,
+  "val": 4488,
+  "test": 4489,
+  "categories": 13,
+  "intents": 46
+}

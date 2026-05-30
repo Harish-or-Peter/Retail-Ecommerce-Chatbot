@@ -31,7 +31,7 @@ Conversational AI, Large Language Models, Fine-tuning, FLAN-T5, Sequence-to-sequ
 
 ### I.1 Background and Motivation
 
-Conversational AI has moved from a novelty to a mainstream channel for customer service. The global chatbot market reached roughly USD 7.76 billion in 2024 and is projected to grow to USD 27.29 billion by 2030, and customer service already accounts for the largest single share of that market [10]. Surveys report that a majority of consumers have interacted with a support chatbot in the past year and that automated agents can resolve a large fraction of routine inquiries without human involvement [10]. This momentum is built on a decade of progress in deep learning for language: the transformer architecture [1], transfer learning with text-to-text models such as T5 [2], and instruction tuning, which aligns models to follow natural-language requests [3]. Open platforms such as Hugging Face now make pre-trained models of this kind freely available, lowering the barrier to building domain-specific assistants.
+Conversational AI has moved from a novelty to a mainstream channel for customer service. The global chatbot market reached roughly USD 7.76 billion in 2024 and is projected to grow to USD 27.29 billion by 2030, and customer service already accounts for the largest single share of that market [10]. Surveys report that a majority of consumers have interacted with a support chatbot in the past year and that automated agents can resolve a large fraction of routine inquiries without human involvement [16]. This momentum is built on a decade of progress in deep learning for language: the transformer architecture [1], transfer learning with text-to-text models such as T5 [2], and instruction tuning, which aligns models to follow natural-language requests [3]. Open platforms such as Hugging Face now make pre-trained models of this kind freely available, lowering the barrier to building domain-specific assistants.
 
 Retail e-commerce is an especially natural setting for these systems. Online shopping produces a continuous, high-volume flow of support requests, and a large share of them are repetitive and well-structured — "where is my order," "how do I return this," "how do I get a refund." Customers expect immediate, around-the-clock answers, which is difficult and expensive to provide with human agents alone. The motivation for this work is that, although large proprietary models can answer such questions, their computational and financial cost is prohibitive for many smaller retailers; a compact model that can be fine-tuned cheaply and run on modest hardware would make this capability far more accessible.
 
@@ -65,7 +65,7 @@ The challenges are equally clear. Support teams must handle high and spiky volum
 
 ### II.3 Rise of AI in E-Commerce Support
 
-Conversational AI has emerged as the leading response to these pressures. Adoption has accelerated sharply: the chatbot market has grown several-fold in recent years, customer service represents its largest application, and a majority of consumers now report having used a support chatbot [10]. Recent research has moved from rule-based and retrieval systems toward fine-tuned transformer models and generative assistants, with work specifically targeting intent understanding and FAQ handling in customer-care settings [7], [8]. The trajectory is from scripted flows toward models that can interpret a free-text request and generate a fluent, relevant answer.
+Conversational AI has emerged as the leading response to these pressures. Adoption has accelerated sharply: the chatbot market has grown several-fold in recent years, customer service represents its largest application, and a majority of consumers now report having used a support chatbot [10], [16]. Recent research has moved from rule-based and retrieval systems toward fine-tuned transformer models and generative assistants, with work specifically targeting intent understanding and FAQ handling in customer-care settings [7], [8]. The trajectory is from scripted flows toward models that can interpret a free-text request and generate a fluent, relevant answer.
 
 This shift matters for retailers because generative, fine-tuned models generalise across the many phrasings customers use for the same underlying intent, rather than depending on exact keyword matches. Studies of customer feedback and support in e-commerce report that transformer-based models deliver strong performance and adapt to a domain with comparatively little data [7]. The present work sits squarely in this line: it applies a fine-tuned, instruction-tuned transformer to retail support, but deliberately chooses the smallest practical model to test the low-cost end of this design space.
 
@@ -135,13 +135,45 @@ The cleaned data was split into training, validation, and test sets in an 80/10/
 
 Inputs and outputs were tokenized with the `flan-t5-small` tokenizer (a SentencePiece model). Token-length analysis of the corpus guided the maximum-length settings: inputs were capped at 128 tokens and outputs at 256 tokens, which covers the large majority of examples while keeping memory use within the GPU budget. Sequences were truncated to these limits and padded to a fixed length.
 
-A standard but important detail was applied to the target labels: padding positions in the labels were replaced with the value −100, which instructs the loss function to ignore them. This prevents the model from being rewarded for predicting padding tokens and ensures the loss reflects only the genuine response content.
+A standard but important detail was applied to the target labels: padding positions in the labels were replaced with the value −100, which instructs the loss function to ignore them. This prevents the model from being rewarded for predicting padding tokens and ensures the loss reflects only the genuine response content. The tokenization function is summarised below.
+
+```python
+MAX_INPUT, MAX_TARGET = 128, 256
+def tokenize(batch):
+    enc = tokenizer(batch["input"],  max_length=MAX_INPUT,  truncation=True, padding="max_length")
+    lab = tokenizer(text_target=batch["output"], max_length=MAX_TARGET, truncation=True, padding="max_length")
+    enc["labels"] = [[(t if t != tokenizer.pad_token_id else -100) for t in seq]
+                     for seq in lab["input_ids"]]
+    return enc
+```
 
 ### IV.4 Model and Fine-Tuning Setup
 
 The base model is `google/flan-t5-small`, an encoder–decoder transformer of roughly 77 million parameters. Fine-tuning was performed with the Hugging Face `Seq2SeqTrainer` on a single Google Colab T4 GPU. A notable engineering decision was to train in full 32-bit precision: FLAN-T5 is numerically unstable in 16-bit floating point and produces NaN losses, and the T4 does not support bfloat16, so FP32 was the only stable option on this hardware.
 
-The main hyperparameters were a learning rate of 3×10⁻⁴, a per-device batch size of 8 with gradient accumulation of 2 (an effective batch size of 16), a linear schedule with 500 warm-up steps, and weight decay of 0.01. Training ran for up to 5 epochs — well within the project's 25-epoch budget — with evaluation and checkpointing every 500 steps, early stopping with patience 2 on validation loss, and automatic restoration of the best checkpoint at the end. This configuration was chosen to converge reliably within the free-tier session while guarding against overfitting.
+The main hyperparameters were a learning rate of 3×10⁻⁴, a per-device batch size of 8 with gradient accumulation of 2 (an effective batch size of 16), a linear schedule with 500 warm-up steps, and weight decay of 0.01. Training ran for up to 5 epochs — well within the project's 25-epoch budget — with evaluation and checkpointing every 500 steps, early stopping with patience 2 on validation loss, and automatic restoration of the best checkpoint at the end. This configuration was chosen to converge reliably within the free-tier session while guarding against overfitting. The core training configuration is shown below.
+
+```python
+training_args = Seq2SeqTrainingArguments(
+    output_dir="ft_ckpt",
+    num_train_epochs=5,                 # cap 25; early stopping halts sooner
+    per_device_train_batch_size=8,
+    gradient_accumulation_steps=2,      # effective batch size 16
+    learning_rate=3e-4, weight_decay=0.01, warmup_steps=500,
+    lr_scheduler_type="linear", predict_with_generate=True,
+    eval_strategy="steps", eval_steps=500, save_steps=500,
+    load_best_model_at_end=True, metric_for_best_model="eval_loss",
+    fp16=False, bf16=False,             # FP32: FLAN-T5 NaNs in FP16; T4 has no bf16
+    seed=42,
+)
+trainer = Seq2SeqTrainer(
+    model=model, args=training_args,
+    train_dataset=train_ds, eval_dataset=val_ds,
+    data_collator=DataCollatorForSeq2Seq(tokenizer, model=model),
+    callbacks=[EarlyStoppingCallback(early_stopping_patience=2)],
+)
+trainer.train()
+```
 
 ### IV.5 Conversational Flow and Inference
 
@@ -169,7 +201,9 @@ The evaluation set out to answer the study's research questions directly: whethe
 
 ### V.2 Experiment Setup
 
-All experiments used the held-out test split (unseen during training) with a fixed sample of 300 examples for the quantitative metrics, evaluated identically for the baseline and fine-tuned models on the same Colab T4 GPU. The qualitative battery used the 16 hand-written prompts described in IV.6. Exploratory data analysis (category and intent distributions and token-length distributions) was produced beforehand and is referenced where relevant (Figures 1–3).
+All experiments used the held-out test split (unseen during training) with a fixed sample of 300 examples for the quantitative metrics, evaluated identically for the baseline and fine-tuned models on the same Colab T4 GPU. The qualitative battery used the 16 hand-written prompts described in IV.6.
+
+Exploratory data analysis informed these design choices and is reported in Figures 1–3. The category distribution (Figure 1) confirms that the corpus spans all 13 e-commerce support areas, with ORDER, PRODUCT, and ACCOUNT among the best-represented; the intent view (Figure 2) shows the 46 intents are reasonably balanced rather than dominated by a single class, which matters for even coverage during fine-tuning. The token-length distributions (Figure 3) justified the maximum-length settings directly: customer instructions are short (the large majority well under 128 tokens), while support responses are substantially longer, which is why a larger 256-token target limit was chosen for the output side. Together these analyses explain both the 128/256 length configuration and the expectation that the model would learn long, structured answers — borne out by the 133-word average response length reported below.
 
 ### V.3 Performance Metrics
 
@@ -248,15 +282,16 @@ The contribution of the work is a transparent and reproducible blueprint for low
 [4] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding," in *Proc. NAACL-HLT*, 2019.
 [5] T. Brown et al., "Language Models are Few-Shot Learners," in *Proc. NeurIPS*, 2020.
 [6] E. Adamopoulou and L. Moussiades, "Chatbots: History, Technology, and Applications," *Machine Learning with Applications*, vol. 2, 2020.
-[7] [Authors], "Enhancing Customer Service Chatbots with Context-Aware NLU through Selective Attention and Multi-task Learning," in *Proc. CODS-COMAD*, 2024. (arXiv:2506.01781) — verify author list.
-[8] [Authors], "Revolutionizing Customer Interactions: Insights and Challenges in Deploying ChatGPT and Generative Chatbots for FAQs," arXiv:2311.09976, 2023. — verify author list.
+[7] S. Nandi, N. Agrawal, A. Singh, and P. Bhatt, "Enhancing Customer Service Chatbots with Context-Aware NLU through Selective Attention and Multi-task Learning," in *Proc. ACM IKDD CODS-COMAD*, 2024. (arXiv:2506.01781)
+[8] F. Khennouche, Y. Elmir, N. Djebari, Y. Himeur, and A. Amira, "Revolutionizing Customer Interactions: Insights and Challenges in Deploying ChatGPT and Generative Chatbots for FAQs," arXiv:2311.09976, 2023.
 [9] Bitext, "Retail E-Commerce LLM Chatbot Training Dataset," Hugging Face, CDLA-Sharing-1.0. https://huggingface.co/datasets/bitext/Bitext-retail-ecommerce-llm-chatbot-training-dataset
-[10] [Industry report], chatbot market size and customer-service adoption statistics, 2024. — replace with the specific source(s) actually cited (e.g., market-research / Statista).
-[11] [Industry report], global e-commerce market size and growth, 2024. — replace with the specific source actually cited (e.g., Grand View Research / Statista).
+[10] Grand View Research, "Chatbot Market Size, Share & Trends Analysis Report, 2024–2030," 2024. <!-- verify the exact $-figures against this report when finalizing -->
+[11] Grand View Research, "E-commerce Market Size, Share & Trends Analysis Report," 2024.
 [12] C.-Y. Lin, "ROUGE: A Package for Automatic Evaluation of Summaries," in *Proc. ACL Workshop (Text Summarization Branches Out)*, 2004.
 [13] K. Papineni, S. Roukos, T. Ward, and W.-J. Zhu, "BLEU: A Method for Automatic Evaluation of Machine Translation," in *Proc. ACL*, 2002.
 [14] T. Zhang, V. Kishore, F. Wu, K. Q. Weinberger, and Y. Artzi, "BERTScore: Evaluating Text Generation with BERT," in *Proc. ICLR*, 2020.
 [15] T. Wolf et al., "Transformers: State-of-the-Art Natural Language Processing," in *Proc. EMNLP (System Demonstrations)*, 2020.
+[16] Master of Code Global, "Chatbot Statistics (2024): Adoption, Usage, and Market Data," 2024.
 
 ---
 
@@ -274,9 +309,9 @@ The contribution of the work is a transparent and reproducible blueprint for low
 
 **F. User Interface.** Gradio `ChatInterface` with example prompts. *[INSERT SCREENSHOT — `resources/diagrams/gradio_demo.png` — pending from Harish's Colab run.]*
 
-**G. Flow Diagram.** *[INSERT diagram — `resources/diagrams/pipeline_flow.png` — to be drawn; mirrors Appendix B.]*
+**G. Flow Diagram.** See `resources/diagrams/pipeline_flow.png` — the seven-stage fine-tuning pipeline (data acquisition → preprocessing → stratified split → tokenization → fine-tuning → evaluation → deployment).
 
-**Code / Reproducibility.** Full code: *[INSERT public GitHub or Colab share link]*. Model, dataset, and notebook are in `Main/chatbot/`.
+**Code / Reproducibility.** Full code: https://github.com/Harish-or-Peter/Retail-Ecommerce-Chatbot . The repository contains the end-to-end Colab notebook, tokenizer/config, paper draft, figures, and metrics; the ~293 MB fine-tuned weights are regenerated by running the notebook, and the dataset auto-downloads from Hugging Face.
 
 <!-- DRAFT COMPLETE: all template sections present (Title → Appendix). Remaining before submission:
   1) Harish rewrites/humanizes prose in own voice + runs plagiarism + AI detectors (Phase 3).
