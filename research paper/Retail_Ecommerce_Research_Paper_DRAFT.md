@@ -205,6 +205,12 @@ All experiments used the held-out test split (unseen during training) with a fix
 
 Exploratory data analysis informed these design choices and is reported in Figures 1–3. The category distribution (Figure 1) confirms that the corpus spans all 13 e-commerce support areas, with ORDER, PRODUCT, and ACCOUNT among the best-represented; the intent view (Figure 2) shows the 46 intents are reasonably balanced rather than dominated by a single class, which matters for even coverage during fine-tuning. The token-length distributions (Figure 3) justified the maximum-length settings directly: customer instructions are short (the large majority well under 128 tokens), while support responses are substantially longer, which is why a larger 256-token target limit was chosen for the output side. Together these analyses explain both the 128/256 length configuration and the expectation that the model would learn long, structured answers — borne out by the 133-word average response length reported below.
 
+![Fig. 1. Category distribution across the 13 e-commerce support areas.](resources/figures/fig1_category_distribution.png)
+
+![Fig. 2. Distribution of the most frequent customer intents.](resources/figures/fig2_intent_distribution.png)
+
+![Fig. 3. Token-length distributions for instructions and responses, justifying the 128/256 limits.](resources/figures/fig3_token_lengths.png)
+
 ### V.3 Performance Metrics
 
 Fine-tuning produced large, consistent improvements across every metric, summarised in Table I.
@@ -221,7 +227,13 @@ Fine-tuning produced large, consistent improvements across every metric, summari
 | Avg. response length (words) | 7.1 | 133.5 |
 | Latency (ms/query) | 52.8 | 740.5 |
 
-The ROUGE-L score improved roughly eight-fold and BLEU rose from zero to 29.27, indicating that the fine-tuned model's wording aligns closely with reference support answers, while the BERTScore increase from 0.818 to 0.909 confirms the gain is semantic and not merely surface overlap. The learning curves (Figure 4) show training loss falling from about 2.5 to 0.70 and validation loss from about 1.08 to 0.62, with validation tracking below training throughout — evidence of healthy convergence without overfitting. The per-category ROUGE-L breakdown (Figure 5/6) shows the model is strongest on ACCOUNT and CART intents (around 0.57) and weakest on FEEDBACK (around 0.38), with the remaining categories clustered in between.
+The ROUGE-L score improved roughly eight-fold and BLEU rose from zero to 29.27, indicating that the fine-tuned model's wording aligns closely with reference support answers, while the BERTScore increase from 0.818 to 0.909 confirms the gain is semantic and not merely surface overlap. The learning curves (Figure 4) show training loss falling from about 2.5 to 0.70 and validation loss from about 1.08 to 0.62, with validation tracking below training throughout — evidence of healthy convergence without overfitting. The per-category ROUGE-L breakdown (Figures 5 and 6) shows the model is strongest on ACCOUNT and CART intents (around 0.57) and weakest on FEEDBACK (around 0.38), with the remaining categories clustered in between.
+
+![Fig. 4. Training and validation loss curves showing convergence without overfitting.](resources/figures/fig4_training_loss.png)
+
+![Fig. 5. Baseline vs. fine-tuned ROUGE scores on the held-out test set.](resources/figures/fig5_metric_comparison.png)
+
+![Fig. 6. Per-category ROUGE-L of the fine-tuned model.](resources/figures/fig6_per_category_rougeL.png)
 
 The cost of these gains is visible in the last two rows of Table I. The fine-tuned model produces far longer, more complete answers (133 versus 7 words) and is correspondingly slower per query (about 740 ms versus 53 ms on the T4), because it generates full multi-step responses with beam search rather than the terse fragments of the baseline. For a support assistant this trade-off is favourable, since the longer responses are the useful ones.
 
@@ -309,7 +321,9 @@ The contribution of the work is a transparent and reproducible blueprint for low
 
 **F. User Interface.** Gradio `ChatInterface` with example prompts. *[INSERT SCREENSHOT — `resources/diagrams/gradio_demo.png` — pending from Harish's Colab run.]*
 
-**G. Flow Diagram.** See `resources/diagrams/pipeline_flow.png` — the seven-stage fine-tuning pipeline (data acquisition → preprocessing → stratified split → tokenization → fine-tuning → evaluation → deployment).
+**G. Flow Diagram.** The seven-stage fine-tuning pipeline is shown in Figure 7.
+
+![Fig. 7. End-to-end fine-tuning pipeline (data acquisition → preprocessing → stratified split → tokenization → fine-tuning → evaluation → deployment).](resources/diagrams/pipeline_flow.png)
 
 **Code / Reproducibility.** Full code: https://github.com/Harish-or-Peter/Retail-Ecommerce-Chatbot . The repository contains the end-to-end Colab notebook, tokenizer/config, paper draft, figures, and metrics; the ~293 MB fine-tuned weights are regenerated by running the notebook, and the dataset auto-downloads from Hugging Face.
 
